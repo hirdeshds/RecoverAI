@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fine Tshirt — Pay with Razorpay</title>
+  <meta name="description"
+    content="Buy the Fine Tshirt online. Pay securely with Razorpay. International payments accepted via Credit Cards, Debit Cards and PayPal." />
+
+  <!-- Razorpay Checkout SDK -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #f0f4f8;
+      --white: #ffffff;
+      --border: #e2e8f0;
+      --text-dark: #1a2d5a;
+      --text-muted: #90a4c0;
+      --text-body: #4a5a70;
+      --rzp-blue: #2d6be4;
+      --rzp-blue-hover: #1a56cc;
+      --star-on: #f5a623;
+      --star-off: #d9e2ef;
+      --price-color: #2d3748;
+      --thumb-border: #d0d9ea;
+      --thumb-active: #2d6be4;
+      --shadow-card: 0 2px 20px rgba(45, 107, 228, 0.07), 0 1px 3px rgba(0, 0, 0, 0.05);
+      --shadow-btn: 0 4px 16px rgba(45, 107, 228, 0.40);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text-body);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--white);
+      border-radius: 18px;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      align-items: flex-start;
+      padding: 40px 44px;
+      gap: 40px;
+      max-width: 860px;
+      width: 100%;
+    }
+
+    /* ── Gallery ── */
+    .gallery {
+      display: flex;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+
+    /* Thumbnails column */
+    .thumbs {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .thumb {
+      width: 64px;
+      height: 70px;
+      border: 2px solid var(--thumb-border);
+      border-radius: 10px;
+      background: #eef3fb;
+      overflow: hidden;
+      padding: 5px;
+      cursor: pointer;
+      transition: border-color 0.18s, box-shadow 0.18s, transform 0.15s;
+    }
+
+    .thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .thumb:hover {
+      border-color: var(--thumb-active);
+      transform: translateY(-1px);
+      box-shadow: 0 3px 10px rgba(45, 107, 228, 0.14);
+    }
+
+    .thumb.active {
+      border-color: var(--thumb-active);
+      box-shadow: 0 0 0 3px rgba(45, 107, 228, 0.12);
+    }
+
+    /* Main image */
+    .main-img-box {
+      width: 210px;
+      height: 230px;
+      background: linear-gradient(145deg, #eef4ff, #ddeaff);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      padding: 14px;
+      flex-shrink: 0;
+      transition: transform 0.25s;
+    }
+
+    .main-img-box:hover {
+      transform: scale(1.02);
+    }
+
+    .main-img-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      transition: opacity 0.2s, transform 0.35s;
+      filter: drop-shadow(0 8px 18px rgba(45, 107, 228, 0.20));
+    }
+
+    .main-img-box:hover img {
+      transform: scale(1.06);
+    }
+
+    /* ── Product info ── */
+    .info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .product-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--text-dark);
+      letter-spacing: -0.2px;
+      margin-bottom: 10px;
+    }
+
+    /* Stars */
+    .stars {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      margin-bottom: 20px;
+    }
+
+    .star {
+      font-size: 22px;
+      color: var(--star-on);
+      cursor: pointer;
+      transition: transform 0.12s, color 0.12s;
+      line-height: 1;
+      display: inline-block;
+    }
+
+    .star.off {
+      color: var(--star-off);
+    }
+
+    .star:hover {
+      transform: scale(1.2);
+    }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin-bottom: 18px;
+    }
+
+    /* Price */
+    .price-row {
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+      margin-bottom: 18px;
+    }
+
+    .price-sym {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--price-color);
+    }
+
+    .price-val {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--price-color);
+      letter-spacing: -0.5px;
+    }
+
+    /* Description */
+    .desc {
+      font-size: 13.5px;
+      line-height: 1.78;
+      color: var(--text-body);
+      margin-bottom: 26px;
+    }
+
+    /* Pay button */
+    .btn-pay {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      background: var(--rzp-blue);
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 12px 26px;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      box-shadow: var(--shadow-btn);
+      letter-spacing: 0.01em;
+      width: fit-content;
+      margin-bottom: 14px;
+      position: relative;
+      overflow: hidden;
+      transition: background 0.18s, transform 0.15s, box-shadow 0.18s;
+    }
+
+    .btn-pay::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.13) 0%, transparent 55%);
+      pointer-events: none;
+    }
+
+    .btn-pay:hover {
+      background: var(--rzp-blue-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 22px rgba(45, 107, 228, 0.44);
+    }
+
+    .btn-pay:active {
+      transform: translateY(0);
+      box-shadow: var(--shadow-btn);
+    }
+
+    .btn-pay:disabled {
+      opacity: 0.75;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Ripple */
+    @keyframes ripple {
+      from {
+        transform: scale(0);
+        opacity: 0.35;
+      }
+
+      to {
+        transform: scale(4);
+        opacity: 0;
+      }
+    }
+
+    .ripple-el {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.4);
+      width: 40px;
+      height: 40px;
+      margin-top: -20px;
+      margin-left: -20px;
+      animation: ripple 0.55s linear;
+      pointer-events: none;
+    }
+
+    /* Disclaimer */
+    .disclaimer {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      font-style: italic;
+      line-height: 1.6;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 680px) {
+      .card {
+        flex-direction: column;
+        padding: 24px 20px;
+        gap: 22px;
+      }
+
+      .gallery {
+        flex-direction: row;
+        align-items: flex-start;
+      }
+
+      .thumbs {
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+
+      .thumb {
+        width: 54px;
+        height: 60px;
+      }
+
+      .main-img-box {
+        width: 170px;
+        height: 190px;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .gallery {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .main-img-box {
+        width: 100%;
+        height: 210px;
+      }
+
+      .thumbs {
+        flex-direction: row;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="card">
+
+    <!-- ── Gallery ── -->
+    <div class="gallery">
+      <!-- Thumbnails -->
+      <div class="thumbs" id="thumbList">
+        <div class="thumb active" data-idx="0" id="t0">
+          <img src="tshirt.jpg" alt="Fine Tshirt view 1" />
+        </div>
+        <div class="thumb" data-idx="1" id="t1">
+          <img src="tshirt.jpg" alt="Fine Tshirt view 2" />
+        </div>
+        <div class="thumb" data-idx="2" id="t2">
+          <img src="tshirt.jpg" alt="Fine Tshirt view 3" />
+        </div>
+      </div>
+
+      <!-- Main image -->
+      <div class="main-img-box">
+        <img id="mainImg" src="tshirt.jpg" alt="Fine Tshirt product image" />
+      </div>
+    </div>
+
+    <!-- ── Product Info ── -->
+    <div class="info">
+      <h1 class="product-title">Fine Tshirt</h1>
+
+      <!-- Stars (4 of 5 filled, matching reference) -->
+      <div class="stars" id="starsRow" aria-label="4 out of 5 stars">
+        <span class="star" title="1">&#9733;</span>
+        <span class="star" title="2">&#9733;</span>
+        <span class="star" title="3">&#9733;</span>
+        <span class="star" title="4">&#9733;</span>
+        <span class="star off" title="5">&#9733;</span>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Price -->
+      <div class="price-row">
+        <span class="price-sym">&#8377;</span>
+        <span class="price-val" id="displayPrice">500.00</span>
+      </div>
+
+      <!-- Description -->
+      <p class="desc">
+        Razorpay provides an end-to-end online payments solution . For International payments,
+        we accept Credit Cards, Debit Cards and PayPal wallet. We support nearly 100 major
+        currencies from across the globe.
+      </p>
+
+      <!-- Pay Button -->
+      <button class="btn-pay" id="payBtn" aria-label="Pay with Razorpay">
+       Pay with Razorpay
+      </button>
+
+      <!-- Disclaimer -->
+      <p class="disclaimer">
+        *This is a real transaction, and the money will be auto-refunded to your account in 4-5 days.
+      </p>
+    </div>
+
+  </div>
+
+  <script>
+    // ── Config ──
+    const PRICE_INR = 500.00; // Base price in INR
+
+    // ── Thumbnail switching ──
+    document.querySelectorAll('.thumb').forEach(function (thumb) {
+      thumb.addEventListener('click', function () {
+        document.querySelectorAll('.thumb').forEach(function (t) { t.classList.remove('active'); });
+        thumb.classList.add('active');
+        var img = document.getElementById('mainImg');
+        img.style.opacity = '0';
+        setTimeout(function () { img.style.opacity = '1'; }, 200);
+      });
+    });
+
+    // ── Star hover ──
+    var stars = document.querySelectorAll('.star');
+    stars.forEach(function (star, idx) {
+      star.addEventListener('mouseenter', function () {
+        stars.forEach(function (s, i) {
+          s.style.color = i <= idx ? '#f5a623' : '#d9e2ef';
+          s.style.transform = i <= idx ? 'scale(1.15)' : '';
+        });
+      });
+    });
+    document.getElementById('starsRow').addEventListener('mouseleave', function () {
+      stars.forEach(function (s, i) {
+        s.style.transform = '';
+        s.style.color = i < 4 ? '#f5a623' : '#d9e2ef';
+      });
+    });
+
+    // ── Pay with Razorpay ──
+    document.getElementById('payBtn').addEventListener('click', async function (e) {
+      var btn = this;
+
+      // Ripple effect
+      var rect = btn.getBoundingClientRect();
+      var ripple = document.createElement('span');
+      ripple.className = 'ripple-el';
+      ripple.style.left = (e.clientX - rect.left) + 'px';
+      ripple.style.top = (e.clientY - rect.top) + 'px';
+      btn.appendChild(ripple);
+      setTimeout(function () { ripple.remove(); }, 600);
+
+      // Show loading
+      var origHTML = btn.innerHTML;
+      btn.innerHTML = '&#8635; Creating order...';
+      btn.disabled = true;
+
+      function resetBtn() {
+        btn.innerHTML = origHTML;
+        btn.disabled = false;
+      }
+
+      try {
+        // Step 1: Create Razorpay order on backend
+        var res = await fetch('/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: PRICE_INR,
+            currency: 'INR',
+            receipt: 'receipt_' + Date.now(),
+            notes: { product: 'Fine Tshirt' }
+          })
+        });
+
+        var order = await res.json();
+
+        if (!res.ok) {
+          alert(order.error || 'Could not create order. Make sure the server is running.');
+          resetBtn();
+          return;
+        }
+
+        resetBtn();
+
+        // Step 2: Open Razorpay checkout modal
+        var options = {
+          key: order.key_id,
+          amount: order.amount,
+          currency: order.currency,
+          name: 'Fine Tshirt Store',
+          description: 'Fine Tshirt — ₹' + PRICE_INR.toFixed(2),
+          image: '/tshirt.jpg',
+          order_id: order.id,
+          theme: { color: '#2d6be4' },
+          prefill: { name: '', email: '', contact: '' },
+          handler: async function (response) {
+            // Step 3: Verify payment on backend
+            try {
+              var vRes = await fetch('/verify-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature
+                })
+              });
+              var vData = await vRes.json();
+              if (vData.status === 'ok') {
+                window.location.href = '/payment-success';
+              } else {
+                alert('Payment verification failed. Please contact support.');
+              }
+            } catch (err) {
+              console.error(err);
+              alert('Network error during verification.');
+            }
+          },
+          modal: {
+            ondismiss: function () {
+              console.log('Razorpay modal dismissed.');
+            }
+          }
+        };
+
+        var rzp = new Razorpay(options);
+        rzp.on('payment.failed', function (resp) {
+          alert('Payment failed: ' + (resp.error.description || 'Unknown error'));
+        });
+        rzp.open();
+
+      } catch (err) {
+        console.error(err);
+        alert('Could not connect to the server.\nMake sure the server is running on http://localhost:3000');
+        resetBtn();
+      }
+    });
+  </script>
+
+</body>
+
+</html>
