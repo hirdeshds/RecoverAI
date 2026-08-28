@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="data:," />
   <title>Fine Tshirt — Pay with Razorpay</title>
   <meta name="description"
     content="Buy the Fine Tshirt online. Pay securely with Razorpay. International payments accepted via Credit Cards, Debit Cards and PayPal." />
@@ -482,7 +483,11 @@
         var order = await res.json();
 
         if (!res.ok) {
-          alert(order.error || 'Could not create order. Make sure the server is running.');
+          if (res.status === 401) {
+            alert(order.error || 'Razorpay authentication failed. Check your key_id and key_secret in .env.');
+          } else {
+            alert(order.error || 'Could not create order. Make sure the server is running.');
+          }
           resetBtn();
           return;
         }

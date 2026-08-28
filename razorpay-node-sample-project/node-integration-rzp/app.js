@@ -1,5 +1,4 @@
 const express = require('express');
-const Razorpay = require('razorpay');
 const bodyParser = require('body-parser');
 const path = require('path');
 const fs = require('fs');
@@ -17,7 +16,10 @@ const loadEnv = (envPath) => {
     if (separatorIndex === -1) return;
 
     const key = trimmed.slice(0, separatorIndex).trim();
-    const value = trimmed.slice(separatorIndex + 1).trim();
+    const value = trimmed
+      .slice(separatorIndex + 1)
+      .trim()
+      .replace(/^['"]|['"]$/g, '');
 
     if (key && process.env[key] === undefined) {
       process.env[key] = value;
@@ -44,10 +46,31 @@ if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
   throw new Error('Missing Razorpay credentials. Set key_id and key_secret in .env.');
 }
 
-const razorpay = new Razorpay({
-  key_id: RAZORPAY_KEY_ID,
-  key_secret: RAZORPAY_KEY_SECRET,
-});
+const createRazorpayOrder = async (options) => {
+  const credentials = Buffer
+    .from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`)
+    .toString('base64');
+
+  const response = await fetch('https://api.razorpay.com/v1/orders', {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${credentials}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(options),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const error = new Error(data.error?.description || 'Error creating Razorpay order');
+    error.statusCode = response.status;
+    error.error = data.error;
+    throw error;
+  }
+
+  return data;
+};
 
 // Function to read data from JSON file
 const readData = () => {
@@ -87,7 +110,7 @@ app.post('/create-order', async (req, res) => {
       notes,
     };
 
-    const order = await razorpay.orders.create(options);
+    const order = await createRazorpayOrder(options);
 
     // Read current orders, add new order, and write back to the file
     const orders = readData();
@@ -106,9 +129,14 @@ app.post('/create-order', async (req, res) => {
     }); // Send order details to frontend, including order ID and public key ID
   } catch (error) {
     console.error(error);
-    res.status(error.statusCode || 500).json({
-      error: error.error?.description || error.message || 'Error creating order',
-    });
+
+    const statusCode = error.statusCode || 500;
+    const razorpayMessage = error.error?.description || error.message;
+    const message = statusCode === 401
+      ? 'Razorpay authentication failed. Check that key_id and key_secret in razorpay-node-sample-project/.env belong to the same active Razorpay account and mode.'
+      : razorpayMessage || 'Error creating order';
+
+    res.status(statusCode).json({ error: message });
   }
 });
 
@@ -121,7 +149,7 @@ app.get('/payment-success', (req, res) => {
 app.post('/verify-payment', (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
-  const secret = razorpay.key_secret;
+  const secret = RAZORPAY_KEY_SECRET;
   const body = razorpay_order_id + '|' + razorpay_payment_id;
 
   try {
