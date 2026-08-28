@@ -262,5 +262,13 @@
     "currency": "INR",
     "receipt": "receipt_1787839337651",
     "status": "created"
+  },
+  {
+    "order_id": "order_TVHfsyZGhGwq4E",
+    "amount": 50000,
+    "currency": "INR",
+    "receipt": "receipt_1787940697584",
+    "status": "paid",
+    "payment_id": "pay_TVHilYFfWpVWIK"
   }
 ]
