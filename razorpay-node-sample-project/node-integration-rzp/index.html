@@ -415,6 +415,27 @@
   <script>
     // ── Config ──
     const PRICE_INR = 500.00; // Base price in INR
+    const CUSTOMER_ID_KEY = 'recoverai_customer_id';
+    const customerId = localStorage.getItem(CUSTOMER_ID_KEY) || ('cust_web_' + Date.now());
+    localStorage.setItem(CUSTOMER_ID_KEY, customerId);
+
+    async function reportRecoverAI(path, payload) {
+      try {
+        var res = await fetch(path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (!res.ok) {
+          console.warn('RecoverAI sync failed', data);
+        }
+        return data;
+      } catch (err) {
+        console.warn('RecoverAI sync failed', err);
+        return null;
+      }
+    }
 
     // ── Thumbnail switching ──
     document.querySelectorAll('.thumb').forEach(function (thumb) {
@@ -476,7 +497,7 @@
             amount: PRICE_INR,
             currency: 'INR',
             receipt: 'receipt_' + Date.now(),
-            notes: { product: 'Fine Tshirt' }
+            notes: { product: 'Fine Tshirt', customer_id: customerId }
           })
         });
 
@@ -531,12 +552,26 @@
           modal: {
             ondismiss: function () {
               console.log('Razorpay modal dismissed.');
+              reportRecoverAI('/recoverai/checkout-abandoned', {
+                customer_id: customerId,
+                cart_total: PRICE_INR,
+                currency: 'INR',
+                order_id: order.id
+              });
             }
           }
         };
 
         var rzp = new Razorpay(options);
         rzp.on('payment.failed', function (resp) {
+          reportRecoverAI('/recoverai/payment-failed', {
+            customer_id: customerId,
+            order_id: order.id,
+            amount: order.amount,
+            currency: order.currency,
+            failure_code: resp.error && (resp.error.reason || resp.error.code),
+            description: resp.error && resp.error.description
+          });
           alert('Payment failed: ' + (resp.error.description || 'Unknown error'));
         });
         rzp.open();

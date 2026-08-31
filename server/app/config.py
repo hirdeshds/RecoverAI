@@ -5,6 +5,11 @@ DEBUG = os.getenv("DEBUG", "false").strip().lower() in {"1", "true", "yes", "on"
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./recoverai.db")
 SQLALCHEMY_ECHO = os.getenv("SQLALCHEMY_ECHO", "false").strip().lower() in {"1", "true", "yes", "on"}
+FRONTEND_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("FRONTEND_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+    if origin.strip()
+]
 
 MAX_ATTEMPTS_PER_CASE = int(os.getenv("MAX_ATTEMPTS_PER_CASE", "4"))
 COOLDOWN_HOURS_SAME_CASE = int(os.getenv("COOLDOWN_HOURS_SAME_CASE", "24"))
@@ -21,6 +26,7 @@ __all__ = [
     "SECRET_KEY",
     "DATABASE_URL",
     "SQLALCHEMY_ECHO",
+    "FRONTEND_ORIGINS",
     "MAX_ATTEMPTS_PER_CASE",
     "COOLDOWN_HOURS_SAME_CASE",
     "COOLDOWN_HOURS_SAME_CUSTOMER",

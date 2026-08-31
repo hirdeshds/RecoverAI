@@ -31,6 +31,7 @@ loadEnv(path.join(__dirname, '..', '.env'));
 
 const app = express();
 const port = process.env.PORT || 3000;
+const RECOVERAI_API_URL = process.env.RECOVERAI_API_URL || 'http://127.0.0.1:8000';
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -86,6 +87,23 @@ const writeData = (data) => {
   fs.writeFileSync('orders.json', JSON.stringify(data, null, 2));
 };
 
+const postRecoverAIWebhook = async (path, payload) => {
+  const response = await fetch(`${RECOVERAI_API_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(data.detail || data.error || `RecoverAI webhook failed with ${response.status}`);
+    error.statusCode = response.status;
+    throw error;
+  }
+
+  return data;
+};
+
 // Initialize orders.json if it doesn't exist
 if (!fs.existsSync('orders.json')) {
   writeData([]);
@@ -119,6 +137,7 @@ app.post('/create-order', async (req, res) => {
       amount: order.amount,
       currency: order.currency,
       receipt: order.receipt,
+      notes: options.notes || {},
       status: 'created',
     });
     writeData(orders);
@@ -137,6 +156,52 @@ app.post('/create-order', async (req, res) => {
       : razorpayMessage || 'Error creating order';
 
     res.status(statusCode).json({ error: message });
+  }
+});
+
+app.post('/recoverai/checkout-abandoned', async (req, res) => {
+  try {
+    const { customer_id, cart_total, currency, order_id } = req.body;
+    const result = await postRecoverAIWebhook('/webhooks/checkout/abandoned', {
+      customer_id,
+      cart_total,
+      currency: currency || 'INR',
+      order_id,
+      raw_reason_code: 'checkout_timeout',
+    });
+    res.json(result);
+  } catch (error) {
+    console.error('RecoverAI checkout abandoned sync failed:', error);
+    res.status(error.statusCode || 502).json({ error: error.message || 'RecoverAI sync failed' });
+  }
+});
+
+app.post('/recoverai/payment-failed', async (req, res) => {
+  try {
+    const { order_id, customer_id, amount, currency, failure_code, description } = req.body;
+    const orders = readData();
+    const order = orders.find(o => o.order_id === order_id);
+    const amountInPaise = Number(amount || order?.amount || 0);
+    const result = await postRecoverAIWebhook('/webhooks/stripe/payment-failed', {
+      customer: customer_id || order?.notes?.customer_id || 'checkout_guest',
+      amount: amountInPaise,
+      currency: currency || order?.currency || 'INR',
+      failure_code: failure_code || 'issuer_soft_decline',
+      provider: 'razorpay',
+      provider_order_id: order_id,
+      failure_description: description,
+    });
+
+    if (order) {
+      order.status = 'failed';
+      order.recoverai_case_id = result.case_id;
+      writeData(orders);
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error('RecoverAI payment failure sync failed:', error);
+    res.status(error.statusCode || 502).json({ error: error.message || 'RecoverAI sync failed' });
   }
 });
 
