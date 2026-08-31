@@ -8,74 +8,43 @@ class BaseSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class CaseBase(BaseSchema):
+class RevenueEventIn(BaseModel):
+    source: str = Field(..., description="payment | checkout | invoice | subscription | mandate")
+    customer_id: str
+    amount_at_risk: float
+    currency: str = "USD"
+    raw_reason_code: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class WebhookDetectedOut(BaseModel):
     case_id: str
-    customer_id: str | None = None
-    amount: int = 0
-    currency: str = "INR"
-    status: str = "open"
-    reason: str | None = None
+    status: str = "detected"
 
 
-class CaseCreate(CaseBase):
-    pass
-
-
-class CaseUpdate(BaseSchema):
-    case_id: str | None = None
-    customer_id: str | None = None
-    amount: int | None = None
-    currency: str | None = None
-    status: str | None = None
-    reason: str | None = None
-
-
-class CaseRead(CaseBase):
-    id: int
+class CaseOut(BaseSchema):
+    id: str
+    source: str
+    customer_id: str
+    amount_at_risk: float
+    amount_recovered: float = 0.0
+    currency: str
+    diagnosis: str | None = None
+    status: str
+    attempts: int
+    promise_to_pay_date: datetime | None = None
     created_at: datetime | None = None
-    updated_at: datetime | None = None
+    last_action_at: datetime | None = None
+    closed_at: datetime | None = None
 
 
-class CaseEventBase(BaseSchema):
+class CaseEventOut(BaseSchema):
+    id: int
+    case_id: str
     event_type: str
-    source: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
-
-
-class CaseEventCreate(CaseEventBase):
-    case_id: int
-
-
-class CaseEventRead(CaseEventBase):
-    id: int
-    case_id: int
+    guardrails_checked: dict[str, Any] | None = None
     created_at: datetime | None = None
 
 
-class SuppressionBase(BaseSchema):
-    reason: str
-    status: str = "active"
-
-
-class SuppressionCreate(SuppressionBase):
-    case_id: int
-
-
-class SuppressionRead(SuppressionBase):
-    id: int
-    case_id: int
-    created_at: datetime | None = None
-
-
-__all__ = [
-    "CaseBase",
-    "CaseCreate",
-    "CaseUpdate",
-    "CaseRead",
-    "CaseEventBase",
-    "CaseEventCreate",
-    "CaseEventRead",
-    "SuppressionBase",
-    "SuppressionCreate",
-    "SuppressionRead",
-]
+__all__ = ["RevenueEventIn", "WebhookDetectedOut", "CaseOut", "CaseEventOut"]
