@@ -104,6 +104,25 @@ const postRecoverAIWebhook = async (path, payload) => {
   return data;
 };
 
+app.get('/recoverai/health', async (req, res) => {
+  try {
+    const response = await fetch(`${RECOVERAI_API_URL}/`);
+    const data = await response.json().catch(() => ({}));
+    res.status(response.ok ? 200 : response.status).json({
+      ok: response.ok,
+      api_url: RECOVERAI_API_URL,
+      ...data,
+    });
+  } catch (error) {
+    console.error('RecoverAI health check failed:', error);
+    res.status(502).json({
+      ok: false,
+      api_url: RECOVERAI_API_URL,
+      error: error.message || 'RecoverAI API is unavailable',
+    });
+  }
+});
+
 // Initialize orders.json if it doesn't exist
 if (!fs.existsSync('orders.json')) {
   writeData([]);
@@ -201,6 +220,58 @@ app.post('/recoverai/payment-failed', async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('RecoverAI payment failure sync failed:', error);
+    res.status(error.statusCode || 502).json({ error: error.message || 'RecoverAI sync failed' });
+  }
+});
+
+app.post('/recoverai/invoice-overdue', async (req, res) => {
+  try {
+    const { account_id, customer_id, invoice_amount, currency, invoice_id } = req.body;
+    const result = await postRecoverAIWebhook('/webhooks/invoice/overdue', {
+      account_id: account_id || customer_id,
+      customer_id,
+      invoice_amount,
+      currency: currency || 'INR',
+      invoice_id,
+      raw_reason_code: 'invoice_overdue',
+    });
+    res.json(result);
+  } catch (error) {
+    console.error('RecoverAI invoice overdue sync failed:', error);
+    res.status(error.statusCode || 502).json({ error: error.message || 'RecoverAI sync failed' });
+  }
+});
+
+app.post('/recoverai/subscription-payment-failed', async (req, res) => {
+  try {
+    const { customer_id, renewal_amount, currency, subscription_id, failure_code } = req.body;
+    const result = await postRecoverAIWebhook('/webhooks/subscription/payment-failed', {
+      customer_id,
+      renewal_amount,
+      currency: currency || 'INR',
+      subscription_id,
+      failure_code: failure_code || 'subscription_payment_failed',
+    });
+    res.json(result);
+  } catch (error) {
+    console.error('RecoverAI subscription payment failure sync failed:', error);
+    res.status(error.statusCode || 502).json({ error: error.message || 'RecoverAI sync failed' });
+  }
+});
+
+app.post('/recoverai/mandate-failed', async (req, res) => {
+  try {
+    const { customer_id, mandate_amount, currency, mandate_id } = req.body;
+    const result = await postRecoverAIWebhook('/webhooks/mandate/failed', {
+      customer_id,
+      mandate_amount,
+      currency: currency || 'INR',
+      mandate_id,
+      raw_reason_code: 'mandate_failed',
+    });
+    res.json(result);
+  } catch (error) {
+    console.error('RecoverAI mandate failure sync failed:', error);
     res.status(error.statusCode || 502).json({ error: error.message || 'RecoverAI sync failed' });
   }
 });

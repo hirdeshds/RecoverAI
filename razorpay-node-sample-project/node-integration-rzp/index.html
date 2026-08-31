@@ -34,6 +34,9 @@
       --text-body: #4a5a70;
       --rzp-blue: #2d6be4;
       --rzp-blue-hover: #1a56cc;
+      --recover-green: #0f9f6e;
+      --recover-green-soft: #e8f7f1;
+      --recover-red: #c53030;
       --star-on: #f5a623;
       --star-off: #d9e2ef;
       --price-color: #2d3748;
@@ -49,15 +52,24 @@
       color: var(--text-body);
       min-height: 100vh;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
       padding: 40px 16px;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: minmax(0, 860px) minmax(300px, 360px);
+      align-items: start;
+      gap: 20px;
+      max-width: 1240px;
+      width: 100%;
     }
 
     /* ── Card ── */
     .card {
       background: var(--white);
-      border-radius: 18px;
+      border-radius: 8px;
       box-shadow: var(--shadow-card);
       display: flex;
       align-items: flex-start;
@@ -299,7 +311,173 @@
     }
 
     /* ── Responsive ── */
+    .recovery-panel {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: var(--shadow-card);
+      padding: 22px;
+    }
+
+    .panel-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .panel-title {
+      color: var(--text-dark);
+      font-size: 17px;
+      font-weight: 800;
+      line-height: 1.3;
+      margin-bottom: 5px;
+    }
+
+    .panel-subtitle {
+      color: var(--text-muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .status-pill {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1;
+      padding: 7px 9px;
+      white-space: nowrap;
+    }
+
+    .status-pill.ok {
+      background: var(--recover-green-soft);
+      border-color: rgba(15, 159, 110, 0.25);
+      color: var(--recover-green);
+    }
+
+    .status-pill.error {
+      background: #fff5f5;
+      border-color: rgba(197, 48, 48, 0.25);
+      color: var(--recover-red);
+    }
+
+    .signal-grid {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .signal {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+
+    .signal-label {
+      color: var(--text-muted);
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+    }
+
+    .signal-value {
+      color: var(--text-dark);
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .demo-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .demo-btn {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text-dark);
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 800;
+      min-height: 38px;
+      padding: 9px 10px;
+      transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+    }
+
+    .demo-btn:hover {
+      border-color: rgba(45, 107, 228, 0.45);
+      box-shadow: 0 5px 14px rgba(45, 107, 228, 0.10);
+      transform: translateY(-1px);
+    }
+
+    .demo-btn:disabled {
+      cursor: wait;
+      opacity: 0.65;
+      transform: none;
+    }
+
+    .event-log {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      list-style: none;
+      max-height: 190px;
+      overflow: auto;
+    }
+
+    .event-log li {
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+    }
+
+    .event-log li:last-child {
+      border-bottom: none;
+    }
+
+    .event-name {
+      color: var(--text-dark);
+      display: block;
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .event-detail {
+      color: var(--text-muted);
+      display: block;
+      font-size: 11px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+
+    .event-log .success .event-name {
+      color: var(--recover-green);
+    }
+
+    .event-log .error .event-name {
+      color: var(--recover-red);
+    }
+
+    @media (max-width: 980px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+    }
+
     @media (max-width: 680px) {
+      body {
+        padding: 20px 12px;
+      }
+
       .card {
         flex-direction: column;
         padding: 24px 20px;
@@ -348,6 +526,7 @@
 
 <body>
 
+  <main class="shell">
   <div class="card">
 
     <!-- ── Gallery ── -->
@@ -412,14 +591,100 @@
 
   </div>
 
+  <aside class="recovery-panel" aria-label="RecoverAI event console">
+    <div class="panel-top">
+      <div>
+        <h2 class="panel-title">RecoverAI events</h2>
+        <p class="panel-subtitle">Backend case creation status for payment and recovery webhooks.</p>
+      </div>
+      <span class="status-pill" id="apiStatus">Checking</span>
+    </div>
+
+    <div class="signal-grid">
+      <div class="signal">
+        <span class="signal-label">Customer</span>
+        <span class="signal-value" id="customerIdView">-</span>
+      </div>
+      <div class="signal">
+        <span class="signal-label">Last order</span>
+        <span class="signal-value" id="lastOrderView">No order yet</span>
+      </div>
+      <div class="signal">
+        <span class="signal-label">Last case</span>
+        <span class="signal-value" id="lastCaseView">No case yet</span>
+      </div>
+    </div>
+
+    <div class="demo-actions">
+      <button class="demo-btn" data-event="checkout" type="button">Checkout</button>
+      <button class="demo-btn" data-event="payment" type="button">Payment</button>
+      <button class="demo-btn" data-event="invoice" type="button">Invoice</button>
+      <button class="demo-btn" data-event="subscription" type="button">Subscription</button>
+      <button class="demo-btn" data-event="mandate" type="button">Mandate</button>
+    </div>
+
+    <ul class="event-log" id="eventLog" aria-live="polite">
+      <li>
+        <span class="event-name">Waiting for activity</span>
+        <span class="event-detail">Events will appear here after they are accepted by FastAPI.</span>
+      </li>
+    </ul>
+  </aside>
+  </main>
+
   <script>
     // ── Config ──
     const PRICE_INR = 500.00; // Base price in INR
     const CUSTOMER_ID_KEY = 'recoverai_customer_id';
     const customerId = localStorage.getItem(CUSTOMER_ID_KEY) || ('cust_web_' + Date.now());
     localStorage.setItem(CUSTOMER_ID_KEY, customerId);
+    document.getElementById('customerIdView').textContent = customerId;
 
-    async function reportRecoverAI(path, payload) {
+    function setApiStatus(text, state) {
+      var apiStatus = document.getElementById('apiStatus');
+      apiStatus.textContent = text;
+      apiStatus.className = 'status-pill' + (state ? ' ' + state : '');
+    }
+
+    function setSignal(id, value) {
+      document.getElementById(id).textContent = value || '-';
+    }
+
+    function pushEvent(name, detail, state) {
+      var eventLog = document.getElementById('eventLog');
+      var item = document.createElement('li');
+      item.className = state || '';
+      item.innerHTML = '<span class="event-name"></span><span class="event-detail"></span>';
+      item.querySelector('.event-name').textContent = name;
+      item.querySelector('.event-detail').textContent = detail;
+
+      if (eventLog.children.length === 1 && eventLog.textContent.indexOf('Waiting for activity') !== -1) {
+        eventLog.innerHTML = '';
+      }
+
+      eventLog.prepend(item);
+      while (eventLog.children.length > 6) {
+        eventLog.removeChild(eventLog.lastElementChild);
+      }
+    }
+
+    async function checkRecoverAIHealth() {
+      try {
+        var res = await fetch('/recoverai/health');
+        var data = await res.json().catch(function () { return {}; });
+        if (!res.ok || data.ok === false) {
+          setApiStatus('Offline', 'error');
+          pushEvent('API offline', data.error || 'FastAPI did not respond on the configured URL.', 'error');
+          return;
+        }
+        setApiStatus('Online', 'ok');
+      } catch (err) {
+        setApiStatus('Offline', 'error');
+        pushEvent('API offline', err.message || 'Could not reach RecoverAI.', 'error');
+      }
+    }
+
+    async function reportRecoverAI(path, payload, label) {
       try {
         var res = await fetch(path, {
           method: 'POST',
@@ -428,14 +693,101 @@
         });
         var data = await res.json().catch(function () { return {}; });
         if (!res.ok) {
+          var message = data.error || data.detail || 'RecoverAI sync failed';
+          pushEvent(label || 'RecoverAI event', message, 'error');
           console.warn('RecoverAI sync failed', data);
+          return data;
         }
+
+        if (data.case_id) {
+          setSignal('lastCaseView', data.case_id);
+        }
+        pushEvent(label || 'RecoverAI event', data.case_id ? 'Case created: ' + data.case_id : 'Event accepted', 'success');
         return data;
       } catch (err) {
+        pushEvent(label || 'RecoverAI event', err.message || 'RecoverAI sync failed', 'error');
         console.warn('RecoverAI sync failed', err);
         return null;
       }
     }
+
+    function demoPayload(type) {
+      var stamp = Date.now();
+      if (type === 'checkout') {
+        return {
+          path: '/recoverai/checkout-abandoned',
+          label: 'Checkout abandoned',
+          payload: {
+            customer_id: customerId,
+            cart_total: PRICE_INR,
+            currency: 'INR',
+            order_id: 'demo_checkout_' + stamp
+          }
+        };
+      }
+      if (type === 'payment') {
+        return {
+          path: '/recoverai/payment-failed',
+          label: 'Payment failed',
+          payload: {
+            customer_id: customerId,
+            order_id: 'demo_order_' + stamp,
+            amount: Math.round(PRICE_INR * 100),
+            currency: 'INR',
+            failure_code: 'issuer_soft_decline',
+            description: 'Demo payment failure'
+          }
+        };
+      }
+      if (type === 'invoice') {
+        return {
+          path: '/recoverai/invoice-overdue',
+          label: 'Invoice overdue',
+          payload: {
+            account_id: customerId,
+            invoice_amount: PRICE_INR * 3,
+            currency: 'INR',
+            invoice_id: 'inv_' + stamp
+          }
+        };
+      }
+      if (type === 'subscription') {
+        return {
+          path: '/recoverai/subscription-payment-failed',
+          label: 'Subscription failed',
+          payload: {
+            customer_id: customerId,
+            renewal_amount: PRICE_INR,
+            currency: 'INR',
+            subscription_id: 'sub_' + stamp,
+            failure_code: 'subscription_payment_failed'
+          }
+        };
+      }
+      return {
+        path: '/recoverai/mandate-failed',
+        label: 'Mandate failed',
+        payload: {
+          customer_id: customerId,
+          mandate_amount: PRICE_INR,
+          currency: 'INR',
+          mandate_id: 'mandate_' + stamp
+        }
+      };
+    }
+
+    document.querySelectorAll('.demo-btn').forEach(function (button) {
+      button.addEventListener('click', async function () {
+        var config = demoPayload(button.dataset.event);
+        button.disabled = true;
+        button.textContent = 'Sending...';
+        await reportRecoverAI(config.path, config.payload, config.label);
+        button.textContent = config.label.split(' ')[0];
+        button.disabled = false;
+      });
+    });
+
+    checkRecoverAIHealth();
 
     // ── Thumbnail switching ──
     document.querySelectorAll('.thumb').forEach(function (thumb) {
