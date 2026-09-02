@@ -60,35 +60,70 @@ def diagnose(raw_reason_code: str, context: Dict[str, Any] = None) -> Dict[str, 
             "method": "rules_prefilter"
         }
 
-    # 2. Tier 2: Anthropic Claude tool-calling fallback
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    # 2. Tier 2: Groq LLM fallback
+    api_key = os.getenv("GROQ_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         return {"root_cause": "other", "confidence": 0.0, "method": "llm_missing_key_fallback"}
 
     try:
-        from anthropic import Anthropic
+        try:
+            from groq import Groq
 
-        client = Anthropic(api_key=api_key)
-        response = client.messages.create(
-            model="claude-3-7-sonnet-20250219",
-            max_tokens=256,
-            tools=[CLASSIFY_TOOL],
-            tool_choice={"type": "tool", "name": "classify_root_cause"},
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"Classify this revenue failure code: '{raw_reason_code}'. Extra context: {json.dumps(context)}"
-                }
-            ]
-        )
+            client = Groq(api_key=api_key)
+            prompt = (
+                "Return ONLY valid JSON with keys 'root_cause' and 'confidence'. "
+                f"Classify this revenue failure code: '{raw_reason_code}'. "
+                f"Extra context: {json.dumps(context, ensure_ascii=False)}. "
+                f"Allowed root_cause values: {ROOT_CAUSE_ENUM}. "
+                "Use a confidence score between 0.0 and 1.0."
+            )
 
-        for block in response.content:
-            if block.type == "tool_use" and block.name == "classify_root_cause":
-                return {
-                    "root_cause": block.input.get("root_cause", "other"),
-                    "confidence": float(block.input.get("confidence", 0.8)),
-                    "method": "llm_tool_call"
-                }
+            response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                temperature=0,
+                response_format={"type": "json_object"},
+                messages=[{"role": "user", "content": prompt}],
+            )
+
+            content = response.choices[0].message.content
+            if not content:
+                raise ValueError("Groq response content was empty")
+
+            payload = json.loads(content)
+            root_cause = payload.get("root_cause", "other")
+            if root_cause not in ROOT_CAUSE_ENUM:
+                root_cause = "other"
+
+            return {
+                "root_cause": root_cause,
+                "confidence": float(payload.get("confidence", 0.8)),
+                "method": "llm_json_response",
+            }
+
+        except ImportError:
+            from anthropic import Anthropic
+
+            client = Anthropic(api_key=api_key)
+            response = client.messages.create(
+                model="claude-3-7-sonnet-20250219",
+                max_tokens=256,
+                tools=[CLASSIFY_TOOL],
+                tool_choice={"type": "tool", "name": "classify_root_cause"},
+                messages=[
+                    {
+                        "role": "user",
+                        "content": f"Classify this revenue failure code: '{raw_reason_code}'. Extra context: {json.dumps(context)}"
+                    }
+                ],
+            )
+
+            for block in response.content:
+                if block.type == "tool_use" and block.name == "classify_root_cause":
+                    return {
+                        "root_cause": block.input.get("root_cause", "other"),
+                        "confidence": float(block.input.get("confidence", 0.8)),
+                        "method": "llm_tool_call",
+                    }
 
     except Exception as exc:
         # Defensive catch: return fallback to protect worker loop
@@ -96,7 +131,7 @@ def diagnose(raw_reason_code: str, context: Dict[str, Any] = None) -> Dict[str, 
             "root_cause": "other",
             "confidence": 0.0,
             "method": "llm_error_fallback",
-            "error": str(exc)
+            "error": str(exc),
         }
 
     return {"root_cause": "other", "confidence": 0.0, "method": "fallback"}

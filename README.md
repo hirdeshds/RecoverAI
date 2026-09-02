@@ -1,35 +1,71 @@
 # RecoverAI
 
-AI Revenue Recovery Agent scaffold based on the attached build documentation.
+AI Revenue Recovery Agent platform for Razorpay integration.
 
-## Folder Structure
+## Directory Structure
 
 ```text
-RecoverAI/
-├── server/
-│   ├── api.py                   # FastAPI server & route handlers (events, cases, dashboard, exports)
-│   ├── agent.py                 # State machine loop, decision table, executors, verification, LLM/Stripe integrations
-│   ├── models.py                # Database helper, domain models, and schemas
-│   └── tests.py                 # Unified backend and worker tests
-├── frontend/
-│   ├── App.tsx                  # React App shell, routing, hooks, API client
-│   ├── components.tsx           # Audit timeline, layout, compliance panel components
-│   ├── index.css                # Style config
-│   └── tests.tsx                # Frontend UI tests
-├── Dockerfile                   # Consolidated production container build
-├── docker-compose.yml           # Unified local multi-service container setup
-├── setup.sql                    # Database migrations, schema, and seed data
-├── manage.py                    # Unified CLI script for migrations, seed data, run-tests, resets
-├── config.json                  # Local configuration template
-└── DOCUMENTATION.md             # Consolidated playbooks, rules, compliance policies & API contracts
+├── README.md
+├── .env.example
+├── .env (gitignored)
+├── requirements.txt
+│
+├── db/
+│   ├── schema.sql              # The 7 core database tables
+│   ├── migrations/             # SQL schema migrations
+│   └── seed_test_events.py     # Simulates failed payments, checkout, subs, invoices
+│
+├── backend/                    # Hirdesh's domain
+│   ├── main.py                 # FastAPI application entrypoint
+│   ├── webhooks/
+│   │   ├── receiver.py         # Endpoint, signature verification, deduplication
+│   │   └── eventParser.py      # Raw payload -> revenue_at_risk row
+│   ├── razorpay/
+│   │   ├── client.py           # Thin SDK wrapper, auth
+│   │   ├── paymentsApi.py      # GET /payments/{id}, /orders/{id}/payments
+│   │   ├── paymentLinksApi.py  # Create/send Payment Links
+│   │   ├── invoicesApi.py      # Create/resend Invoices
+│   │   ├── subscriptionsApi.py # Subscription retry/card update helpers
+│   │   └── getFailureContext.py# Shared interface for diagnosis
+│   ├── executor/
+│   │   ├── stoppingRules.py    # Max attempts, cooldown, opt-out, dollar threshold gate
+│   │   ├── backoff.py          # Exponential backoff on 429s
+│   │   └── runIntervention.py  # Reads pending interventions & executes action
+│   ├── promiseToPay/
+│   │   └── checker.py          # Cron/polling checker, marks honored/missed
+│   └── metrics/
+│       └── aggregate.py        # Metrics aggregation endpoint logic
+│
+└── intelligence/               # Mahek's domain
+    ├── diagnosis/
+    │   ├── rulesClassifier.py  # Error code -> root cause classification
+    │   └── llmClassifier.py    # Ambiguous case fallback + confidence
+    ├── decisionEngine/
+    │   ├── decisionRules.py    # Root cause -> action + channel + timing
+    │   └── escalationLadder.py # Escalation logic (day 0-3, 4-14, 15-30, 30+)
+    └── templates/
+        └── messageTemplates.py # Pre-approved message library
 ```
 
-## Suggested Build Order
+## Setup & Running
 
-1. Backend ingestion and normalized `RevenueEvent` contracts.
-2. Database migrations for `cases`, `case_events`, and `suppressions`.
-3. Recovery worker state machine and guardrail engine.
-4. Sandbox integrations for payments and messaging.
-5. React dashboard with recovery metrics, audit viewer, and compliance panel.
-6. Synthetic batch runner and demo scripts.
+1. **Environment Setup**:
+   ```bash
+   cp .env.example .env
+   # Update keys in .env
+   ```
 
+2. **Install Dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Database Setup & Seeding**:
+   ```bash
+   python db/seed_test_events.py
+   ```
+
+4. **Run Server**:
+   ```bash
+   uvicorn backend.main:app --reload
+   ```

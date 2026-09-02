@@ -83,6 +83,7 @@ def test_normalizers_cover_all_dev_a_sources():
 
 @pytest.mark.parametrize("raw_reason_code,root_cause", sorted(RULES_MAP.items()))
 def test_diagnose_rules_map_without_llm(raw_reason_code, root_cause, monkeypatch):
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     result = diagnose(raw_reason_code, {})
     assert result["root_cause"] == root_cause
@@ -91,6 +92,7 @@ def test_diagnose_rules_map_without_llm(raw_reason_code, root_cause, monkeypatch
 
 
 def test_diagnose_unknown_reason_falls_back_without_key(monkeypatch):
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     result = diagnose("issuer_soft_decline", {"source": "payment"})
     assert result["root_cause"] == "other"
