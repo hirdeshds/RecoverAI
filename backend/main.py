@@ -137,12 +137,100 @@ def get_metrics():
             detail=f"Failed to compute metrics: {str(err)}"
         )
 
+@app.get("/api/audit-logs")
+def get_audit_logs():
+    """Returns recent audit logs for the dashboard live feed."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT r.id, r.event_type, r.amount, r.currency, r.error_code, r.error_description, r.status, r.created_at,
+               d.root_cause, d.confidence_score, d.reasoning,
+               i.action_type, i.channel, i.status AS intervention_status
+        FROM revenue_at_risk r
+        LEFT JOIN diagnoses d ON r.id = d.revenue_at_risk_id
+        LEFT JOIN interventions i ON r.id = i.revenue_at_risk_id
+        ORDER BY r.created_at DESC LIMIT 50
+    """)
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return {"audit_logs": rows}
+
+@app.post("/api/interventions/run-all")
+def run_all_interventions():
+    """Processes pending interventions and runs execution & diagnosis."""
+    from intelligence.diagnosis.llmClassifier import classify_error
+    from intelligence.decisionEngine.decisionRules import decide_action_for_cause
+    from backend.executor.runIntervention import execute_intervention
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # 1. Diagnose open revenue_at_risk items without diagnosis
+    cursor.execute("""
+        SELECT id, error_code, error_description, amount FROM revenue_at_risk WHERE id NOT IN (SELECT revenue_at_risk_id FROM diagnoses)
+    """)
+    unprocessed = cursor.fetchall()
+    
+    for item in unprocessed:
+        diag = classify_error(item["error_code"] or "", item["error_description"] or "")
+        diag_id = f"diag_{uuid.uuid4().hex[:8]}"
+        cursor.execute("""
+            INSERT INTO diagnoses (id, revenue_at_risk_id, root_cause, classifier_type, confidence_score, reasoning)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (diag_id, item["id"], diag["root_cause"], diag["classifier_type"], diag["confidence_score"], diag["reasoning"]))
+        
+        decision = decide_action_for_cause(diag["root_cause"])
+        interv_id = f"int_{uuid.uuid4().hex[:8]}"
+        cursor.execute("""
+            INSERT INTO interventions (id, revenue_at_risk_id, diagnosis_id, action_type, channel, status)
+            VALUES (?, ?, ?, ?, ?, 'pending')
+        """, (interv_id, item["id"], diag_id, decision["action"], decision["channel"]))
+
+        cursor.execute("""
+            INSERT INTO audit_logs (id, entity_type, entity_id, action, details)
+            VALUES (?, 'revenue_at_risk', ?, 'DIAGNOSED_AND_DECIDED', ?)
+        """, (f"aud_{uuid.uuid4().hex[:8]}", item["id"], f"Root cause: {diag['root_cause']} -> Action: {decision['action']} via {decision['channel']}"))
+
+    # 2. Execute pending interventions
+    cursor.execute("""
+        SELECT i.id, i.action_type, i.channel, i.attempt_number, r.amount, r.razorpay_entity_id, r.id as rar_id
+        FROM interventions i
+        JOIN revenue_at_risk r ON i.revenue_at_risk_id = r.id
+        WHERE i.status = 'pending'
+    """)
+    pending = cursor.fetchall()
+    executed_count = 0
+    stopped_count = 0
+    
+    for row in pending:
+        interv_dict = dict(row)
+        res = execute_intervention(interv_dict)
+        new_status = res.get("status", "executed")
+        cursor.execute("UPDATE interventions SET status = ?, executed_at = CURRENT_TIMESTAMP WHERE id = ?", (new_status, row["id"]))
+        
+        # Log to audit_logs
+        cursor.execute("""
+            INSERT INTO audit_logs (id, entity_type, entity_id, action, details)
+            VALUES (?, 'intervention', ?, ?, ?)
+        """, (f"aud_{uuid.uuid4().hex[:8]}", row["id"], f"ACTION_{new_status.upper()}", res.get("reason") or res.get("error") or "Executed successfully via Razorpay API"))
+        
+        if new_status == "executed":
+            executed_count += 1
+        elif new_status == "stopped":
+            stopped_count += 1
+            
+    conn.commit()
+    conn.close()
+    return {"executed": executed_count, "stopped": stopped_count, "diagnosed": len(unprocessed)}
+
 @app.post("/api/seed")
 def trigger_seed():
     """Triggers test event database seeding."""
     try:
         seed_test_events()
-        return {"status": "success", "message": "Simulated Razorpay test events seeded successfully"}
+        # Auto-run diagnosis & decision pipeline on seeded events
+        run_all_interventions()
+        return {"status": "success", "message": "Simulated Razorpay test events seeded & pipeline executed successfully"}
     except Exception as err:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

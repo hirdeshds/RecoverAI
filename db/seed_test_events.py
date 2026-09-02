@@ -53,7 +53,12 @@ def seed_test_events():
         # 4. Overdue invoice (Invoice expired)
         (f"rar_{''.join(random.choices(string.ascii_lowercase + string.digits, k=8))}", 
          customer_id, "invoice_overdue", 5000.00, "INR", "inv_test104", 
-         "INVOICE_EXPIRED", "Payment link for invoice expired", "open")
+         "INVOICE_EXPIRED", "Payment link for invoice expired", "open"),
+
+        # 5. High-Value Payment (Fires Stopping Rule for Manual Approval)
+        (f"rar_{''.join(random.choices(string.ascii_lowercase + string.digits, k=8))}", 
+         customer_id, "payment_failed", 75000.00, "INR", "pay_test105", 
+         "HIGH_VALUE_GATE", "High value transaction failed ($ threshold exceeded)", "open")
     ]
 
     cursor.executemany("""
