@@ -22,12 +22,26 @@
         <button class="btn" onclick="seedEvents()">Seed Test Events</button>
         <button class="btn" onclick="loadMetrics()" style="background: #334155; margin-left: 0.5rem;">Refresh</button>
 
+        <div class="card" style="margin-top: 1.5rem;">
+            <h2 style="margin-top: 0;">Make a payment</h2>
+            <input id="paymentAmount" type="number" min="1" step="0.01" placeholder="Amount in INR"
+                style="padding: 0.75rem; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;">
+            <input id="customerEmail" type="email" placeholder="Email (optional)"
+                style="padding: 0.75rem; margin-left: 0.5rem; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;">
+            <button class="btn" onclick="startPayment()" style="margin-left: 0.5rem;">Pay with Razorpay</button>
+            <p id="paymentStatus" style="color: #94a3b8;"></p>
+        </div>
+
         <div class="grid" id="metricsGrid">
             <div class="card"><p>Loading metrics...</p></div>
         </div>
     </div>
 
     <script>
+        const razorpayScript = document.createElement('script');
+        razorpayScript.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        document.head.appendChild(razorpayScript);
+
         async function loadMetrics() {
             try {
                 const res = await fetch('/api/metrics');
@@ -58,6 +72,59 @@
         async function seedEvents() {
             await fetch('/api/seed', { method: 'POST' });
             loadMetrics();
+        }
+
+        async function startPayment() {
+            const amount = Number(document.getElementById('paymentAmount').value);
+            const email = document.getElementById('customerEmail').value.trim();
+            const status = document.getElementById('paymentStatus');
+
+            if (!amount || amount <= 0) {
+                status.textContent = 'Enter a valid amount.';
+                return;
+            }
+
+            status.textContent = 'Creating secure payment...';
+            try {
+                const orderResponse = await fetch('/api/payments/create-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount, customer_email: email })
+                });
+                const order = await orderResponse.json();
+                if (!orderResponse.ok) throw new Error(order.detail || 'Could not create order');
+
+                const checkout = new Razorpay({
+                    key: order.key_id,
+                    amount: order.amount,
+                    currency: order.currency,
+                    name: 'RecoverAI',
+                    description: 'Revenue recovery payment',
+                    order_id: order.order_id,
+                    prefill: { email: order.customer.email },
+                    handler: verifyPayment,
+                    modal: { ondismiss: () => { status.textContent = 'Payment cancelled.'; } }
+                });
+                checkout.on('payment.failed', (event) => {
+                    status.textContent = event.error.description || 'Payment failed.';
+                });
+                checkout.open();
+            } catch (error) {
+                status.textContent = error.message;
+            }
+        }
+
+        async function verifyPayment(response) {
+            const status = document.getElementById('paymentStatus');
+            status.textContent = 'Verifying payment...';
+            const result = await fetch('/api/payments/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(response)
+            });
+            const data = await result.json();
+            status.textContent = result.ok ? `Payment verified: ${data.payment_id}` : data.detail;
+            if (result.ok) loadMetrics();
         }
 
         loadMetrics();

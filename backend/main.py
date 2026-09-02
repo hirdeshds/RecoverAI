@@ -1,12 +1,22 @@
+import sys
 import json
+import uuid
 from pathlib import Path
+
+# Add project root to sys.path so imports work regardless of working directory
+BASE_DIR = Path(__file__).resolve().parent.parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
 from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
 from backend.database import get_db_connection, init_db
+from backend.razorpay.client import get_razorpay_client, KEY_ID
 from backend.webhooks.receiver import verify_webhook_signature, is_duplicate_event
 from backend.webhooks.eventParser import parse_webhook_payload
 from backend.metrics.aggregate import compute_aggregate_metrics
@@ -29,8 +39,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-BASE_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
+
+
+class PaymentOrderRequest(BaseModel):
+    amount: float = Field(gt=0, le=10000000)
+    currency: str = Field(default="INR", min_length=3, max_length=3)
+    customer_name: str = Field(default="", max_length=100)
+    customer_email: str = Field(default="", max_length=254)
+    customer_contact: str = Field(default="", max_length=20)
+
+
+class PaymentVerificationRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
 
 @app.on_event("startup")
 def startup_event():
@@ -67,7 +90,7 @@ async def razorpay_webhook(request: Request):
             detail="Invalid JSON payload format"
         )
 
-    event_id = str(payload.get("account_id", "")) + str(payload.get("created_at", ""))
+    event_id = str(payload.get("account_id", "")) + str(payload.get("created_at", "")) + str(payload.get("event", ""))
     if is_duplicate_event(event_id):
         return {"status": "ignored", "reason": "duplicate_event"}
 
@@ -75,6 +98,13 @@ async def razorpay_webhook(request: Request):
 
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    # If it's a successful payment recovery event, update status if existing or insert as recovered
+    if parsed_record["status"] == "recovered":
+        cursor.execute("""
+            UPDATE revenue_at_risk SET status = 'recovered' WHERE razorpay_entity_id = ? OR customer_id = ?
+        """, (parsed_record["razorpay_entity_id"], parsed_record["customer_id"]))
+    
     cursor.execute("""
         INSERT INTO revenue_at_risk 
         (id, customer_id, event_type, amount, currency, razorpay_entity_id, error_code, error_description, status) 
@@ -117,6 +147,52 @@ def trigger_seed():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Seeding failed: {str(err)}"
+        )
+
+
+@app.post("/api/payments/create-order")
+def create_payment_order(payment: PaymentOrderRequest):
+    """Creates a Razorpay order; the secret key never leaves the server."""
+    try:
+        client = get_razorpay_client()
+        order = client.order.create({
+            "amount": int(round(payment.amount * 100)),
+            "currency": payment.currency.upper(),
+            "receipt": f"recoverai_{uuid.uuid4().hex[:16]}",
+            "notes": {"source": "recoverai_dashboard"}
+        })
+        return {
+            "order_id": order["id"],
+            "amount": order["amount"],
+            "currency": order["currency"],
+            "key_id": KEY_ID,
+            "customer": {
+                "name": payment.customer_name,
+                "email": payment.customer_email,
+                "contact": payment.customer_contact,
+            },
+        }
+    except Exception as err:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Unable to create Razorpay order: {str(err)}"
+        )
+
+
+@app.post("/api/payments/verify")
+def verify_payment(payment: PaymentVerificationRequest):
+    """Verifies the Checkout signature using Razorpay's server-side SDK."""
+    try:
+        get_razorpay_client().utility.verify_payment_signature({
+            "razorpay_order_id": payment.razorpay_order_id,
+            "razorpay_payment_id": payment.razorpay_payment_id,
+            "razorpay_signature": payment.razorpay_signature,
+        })
+        return {"status": "verified", "payment_id": payment.razorpay_payment_id}
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Razorpay payment verification failed"
         )
 
 # Serve static frontend web application
