@@ -4,9 +4,9 @@
   "description": "RecoverAI - AI Revenue Recovery Agent platform for Razorpay",
   "main": "backend/server.js",
   "scripts": {
-    "start": "uvicorn backend.main:app --host 0.0.0.0 --port 5000 --reload",
+    "start": ".venv\\Scripts\\python.exe -m uvicorn backend.main:app --host 0.0.0.0 --port 5000",
     "seed": "python -m db.seed_test_events",
-    "py-start": "uvicorn backend.main:app --host 0.0.0.0 --port 5000 --reload",
+    "py-start": ".venv\\Scripts\\python.exe -m uvicorn backend.main:app --host 0.0.0.0 --port 5000",
     "py-seed": "python -m db.seed_test_events",
     "tunnel": "python tunnel.py 5000"
   },
