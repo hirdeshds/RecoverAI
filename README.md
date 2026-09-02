@@ -1,71 +1,53 @@
 # RecoverAI
 
-AI Revenue Recovery Agent platform for Razorpay integration.
+AI Revenue Recovery Agent platform for Razorpay.
 
 ## Directory Structure
 
 ```text
+recoverAI/
 ├── README.md
 ├── .env.example
-├── .env (gitignored)
-├── requirements.txt
+├── package.json
 │
 ├── db/
-│   ├── schema.sql              # The 7 core database tables
-│   ├── migrations/             # SQL schema migrations
-│   └── seed_test_events.py     # Simulates failed payments, checkout, subs, invoices
+│   ├── schema.sql
+│   └── seed.js
 │
-├── backend/                    # Hirdesh's domain
-│   ├── main.py                 # FastAPI application entrypoint
-│   ├── webhooks/
-│   │   ├── receiver.py         # Endpoint, signature verification, deduplication
-│   │   └── eventParser.py      # Raw payload -> revenue_at_risk row
-│   ├── razorpay/
-│   │   ├── client.py           # Thin SDK wrapper, auth
-│   │   ├── paymentsApi.py      # GET /payments/{id}, /orders/{id}/payments
-│   │   ├── paymentLinksApi.py  # Create/send Payment Links
-│   │   ├── invoicesApi.py      # Create/resend Invoices
-│   │   ├── subscriptionsApi.py # Subscription retry/card update helpers
-│   │   └── getFailureContext.py# Shared interface for diagnosis
-│   ├── executor/
-│   │   ├── stoppingRules.py    # Max attempts, cooldown, opt-out, dollar threshold gate
-│   │   ├── backoff.py          # Exponential backoff on 429s
-│   │   └── runIntervention.py  # Reads pending interventions & executes action
-│   ├── promiseToPay/
-│   │   └── checker.py          # Cron/polling checker, marks honored/missed
-│   └── metrics/
-│       └── aggregate.py        # Metrics aggregation endpoint logic
+├── backend/
+│   ├── server.js
+│   ├── webhook.js
+│   ├── razorpay.js
+│   ├── diagnosis.js
+│   ├── decision.js
+│   ├── executor.js
+│   └── metrics.js
 │
-└── intelligence/               # Mahek's domain
-    ├── diagnosis/
-    │   ├── rulesClassifier.py  # Error code -> root cause classification
-    │   └── llmClassifier.py    # Ambiguous case fallback + confidence
-    ├── decisionEngine/
-    │   ├── decisionRules.py    # Root cause -> action + channel + timing
-    │   └── escalationLadder.py # Escalation logic (day 0-3, 4-14, 15-30, 30+)
-    └── templates/
-        └── messageTemplates.py # Pre-approved message library
+└── frontend/
+    ├── pages/
+    ├── components/
+    └── api.js
 ```
 
-## Setup & Running
+## How to Run
 
-1. **Environment Setup**:
+1. **Install Dependencies**:
+   ```bash
+   npm install
+   ```
+
+2. **Configure Environment**:
    ```bash
    cp .env.example .env
-   # Update keys in .env
    ```
 
-2. **Install Dependencies**:
+3. **Seed Database**:
    ```bash
-   pip install -r requirements.txt
+   npm run seed
    ```
 
-3. **Database Setup & Seeding**:
+4. **Start Server**:
    ```bash
-   python db/seed_test_events.py
+   npm start
    ```
-
-4. **Run Server**:
-   ```bash
-   uvicorn backend.main:app --reload
-   ```
+   Open `http://localhost:5000` in your browser.
