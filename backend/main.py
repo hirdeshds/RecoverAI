@@ -384,6 +384,7 @@ def simulate_payment_failure(req: SimulateFailureRequest):
         "channel": decision["channel"],
         "attempt_number": 1,
         "amount": req.amount,
+        "customer_email": req.customer_email,
         "razorpay_entity_id": razorpay_entity_id,
         "rar_id": rar_id
     }

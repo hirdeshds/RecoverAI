@@ -7,7 +7,8 @@ def create_payment_link(amount: float, currency: str = "INR", description: str =
         "amount": int(round(amount * 100)),
         "currency": currency or "INR",
         "description": description,
-        "customer": customer or {},
         "notify": {"sms": True, "email": True}
     }
+    if customer:
+        payload["customer"] = customer
     return client.payment_link.create(payload)
