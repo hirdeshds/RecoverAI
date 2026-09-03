@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "test_secret")
+WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
 processed_events = set()
 
 def verify_webhook_signature(body_bytes: bytes, signature: str) -> bool:
