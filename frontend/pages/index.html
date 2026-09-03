@@ -442,6 +442,120 @@
             70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
             100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
+
+        /* Live Agent Pipeline Visualizer Styles */
+        .pipeline-container {
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            border-radius: var(--radius-md);
+            padding: 1.75rem;
+            color: #ffffff;
+            margin-top: 1.5rem;
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.3);
+            border: 1px solid #334155;
+            display: none;
+            transition: all 0.3s ease;
+        }
+
+        .pipeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .pipeline-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #60a5fa;
+        }
+
+        .pipeline-steps-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+        }
+
+        @media (max-width: 900px) {
+            .pipeline-steps-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .pipeline-node {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid #334155;
+            border-radius: var(--radius-sm);
+            padding: 1.25rem;
+            position: relative;
+            transition: all 0.4s ease;
+        }
+
+        .pipeline-node.waiting {
+            opacity: 0.4;
+            filter: grayscale(80%);
+        }
+
+        .pipeline-node.active {
+            opacity: 1;
+            border-color: #3b82f6;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+            background: rgba(37, 99, 235, 0.15);
+        }
+
+        .pipeline-node.completed {
+            opacity: 1;
+            border-color: #10b981;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .pipeline-node.stopped {
+            opacity: 1;
+            border-color: #f59e0b;
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        .node-step-badge {
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .node-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #f8fafc;
+            margin-bottom: 0.4rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .node-desc {
+            font-size: 0.8rem;
+            color: #cbd5e1;
+            line-height: 1.4;
+        }
+
+        .node-meta {
+            margin-top: 0.75rem;
+            padding-top: 0.5rem;
+            border-top: 1px dashed rgba(255, 255, 255, 0.1);
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
     </style>
 </head>
 <body>
@@ -552,9 +666,9 @@
             <div class="section-header">
                 <div class="section-title">
                     <i data-lucide="credit-card" style="color: var(--accent-primary);"></i>
-                    Razorpay Checkout Sandbox & Simulator
+                    Razorpay Checkout Sandbox & Autonomous Agent Pipeline Simulator
                 </div>
-                <span class="badge badge-blue">Live Integration</span>
+                <span class="badge badge-blue">Real-Time Autonomous Agent Pipeline</span>
             </div>
             <div class="payment-form">
                 <div class="input-group">
@@ -565,13 +679,89 @@
                     <label class="input-label">Customer Email</label>
                     <input id="customerEmail" type="email" value="alex.merchant@example.com" class="input-field" placeholder="customer@example.com">
                 </div>
-                <div style="align-self: flex-end;">
+                <div class="input-group">
+                    <label class="input-label">Simulated Failure Scenario</label>
+                    <select id="failureScenario" class="input-field">
+                        <option value="INSUFFICIENT_FUNDS">Insufficient Funds (Card / UPI)</option>
+                        <option value="CARD_EXPIRED">Card Expired / Invalid Details</option>
+                        <option value="BANK_TIMEOUT">Bank Gateway Timeout</option>
+                        <option value="USER_ABANDONED">User Abandoned Checkout</option>
+                        <option value="HIGH_VALUE_THRESHOLD">High-Value Threshold Safeguard (> ₹50,000)</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-self: flex-end;">
                     <button class="btn btn-primary" onclick="startPayment()">
-                        <i data-lucide="external-link"></i> Launch Razorpay Checkout
+                        <i data-lucide="external-link"></i> Launch Checkout
+                    </button>
+                    <button class="btn" style="background:#ef4444; color:white; border:none;" onclick="triggerSimulatedFailure()">
+                        <i data-lucide="zap"></i> Simulate Payment Failure & Run Pipeline
                     </button>
                 </div>
             </div>
             <div id="paymentStatus" style="margin-top: 1rem; font-size: 0.875rem; font-weight: 600; color: var(--text-secondary);"></div>
+
+            <!-- Live Agent Pipeline Visualizer Component -->
+            <div id="pipelineContainer" class="pipeline-container">
+                <div class="pipeline-header">
+                    <div class="pipeline-title">
+                        <i data-lucide="workflow"></i> Live Autonomous Recovery Agent Pipeline Execution
+                    </div>
+                    <span id="pipelineGlobalBadge" class="badge badge-purple">Processing Pipeline...</span>
+                </div>
+                <div class="pipeline-steps-grid">
+                    <!-- Step 1: Webhook Ingest -->
+                    <div id="pNode1" class="pipeline-node waiting">
+                        <div class="node-step-badge">
+                            <span>Step 01</span>
+                            <span id="pBadge1" class="badge badge-blue">Waiting</span>
+                        </div>
+                        <div class="node-title">
+                            <i data-lucide="rss"></i> Webhook Ingest
+                        </div>
+                        <div id="pDesc1" class="node-desc">Receiving payment.failed webhook event payload...</div>
+                        <div id="pMeta1" class="node-meta">—</div>
+                    </div>
+
+                    <!-- Step 2: AI Diagnosis -->
+                    <div id="pNode2" class="pipeline-node waiting">
+                        <div class="node-step-badge">
+                            <span>Step 02</span>
+                            <span id="pBadge2" class="badge badge-blue">Waiting</span>
+                        </div>
+                        <div class="node-title">
+                            <i data-lucide="brain"></i> AI Diagnosis
+                        </div>
+                        <div id="pDesc2" class="node-desc">Running LLM & heuristics root-cause classifier...</div>
+                        <div id="pMeta2" class="node-meta">—</div>
+                    </div>
+
+                    <!-- Step 3: Decision Engine -->
+                    <div id="pNode3" class="pipeline-node waiting">
+                        <div class="node-step-badge">
+                            <span>Step 03</span>
+                            <span id="pBadge3" class="badge badge-blue">Waiting</span>
+                        </div>
+                        <div class="node-title">
+                            <i data-lucide="shield-check"></i> Decision Engine
+                        </div>
+                        <div id="pDesc3" class="node-desc">Evaluating compliance rules & backoff strategy...</div>
+                        <div id="pMeta3" class="node-meta">—</div>
+                    </div>
+
+                    <!-- Step 4: Autonomous Execution -->
+                    <div id="pNode4" class="pipeline-node waiting">
+                        <div class="node-step-badge">
+                            <span>Step 04</span>
+                            <span id="pBadge4" class="badge badge-blue">Waiting</span>
+                        </div>
+                        <div class="node-title">
+                            <i data-lucide="send"></i> Autonomous Action
+                        </div>
+                        <div id="pDesc4" class="node-desc">Dispatching Razorpay recovery link / API call...</div>
+                        <div id="pMeta4" class="node-meta">—</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Visual Analytics Section -->
@@ -761,6 +951,132 @@
             }
         }
 
+        async function triggerSimulatedFailure(customParams) {
+            const amountInput = document.getElementById('paymentAmount');
+            const emailInput = document.getElementById('customerEmail');
+            const scenarioInput = document.getElementById('failureScenario');
+            const status = document.getElementById('paymentStatus');
+
+            let amount = Number(amountInput ? amountInput.value : 1499);
+            let email = emailInput ? emailInput.value.trim() : 'alex.merchant@example.com';
+            let scenario = scenarioInput ? scenarioInput.value : 'INSUFFICIENT_FUNDS';
+
+            let errorCode = "BAD_REQUEST_PAYMENT_FAILED";
+            let errorDesc = "Payment failed due to insufficient balance in customer account";
+
+            if (scenario === "HIGH_VALUE_THRESHOLD") {
+                amount = 75000;
+                if (amountInput) amountInput.value = 75000;
+                errorCode = "BAD_REQUEST_PAYMENT_FAILED";
+                errorDesc = "High-value enterprise payment failure requiring compliance review";
+            } else if (scenario === "CARD_EXPIRED") {
+                errorCode = "BAD_REQUEST_CARD_EXPIRED";
+                errorDesc = "Card expiry date is in the past or card deactivated";
+            } else if (scenario === "BANK_TIMEOUT") {
+                errorCode = "GATEWAY_TIMEOUT";
+                errorDesc = "Bank server authorization timeout occurred";
+            } else if (scenario === "USER_ABANDONED") {
+                errorCode = "USER_ABANDONED";
+                errorDesc = "Customer closed Razorpay checkout modal before completing payment";
+            }
+
+            if (customParams) {
+                if (customParams.amount) amount = customParams.amount;
+                if (customParams.email) email = customParams.email;
+                if (customParams.error_code) errorCode = customParams.error_code;
+                if (customParams.error_description) errorDesc = customParams.error_description;
+            }
+
+            // Show pipeline container and reset nodes
+            const container = document.getElementById('pipelineContainer');
+            container.style.display = 'block';
+
+            document.getElementById('pipelineGlobalBadge').textContent = "Running AI Agent Pipeline...";
+            document.getElementById('pipelineGlobalBadge').className = "badge badge-purple";
+
+            for (let i = 1; i <= 4; i++) {
+                const node = document.getElementById(`pNode${i}`);
+                const badge = document.getElementById(`pBadge${i}`);
+                const desc = document.getElementById(`pDesc${i}`);
+                const meta = document.getElementById(`pMeta${i}`);
+                node.className = "pipeline-node waiting";
+                badge.className = "badge badge-blue";
+                badge.textContent = "Waiting";
+                desc.textContent = "Standing by...";
+                meta.textContent = "—";
+            }
+
+            status.textContent = "Simulating payment failure & invoking live autonomous recovery agent pipeline...";
+
+            try {
+                const res = await fetch('/api/simulate-payment-failure', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount,
+                        customer_email: email,
+                        error_code: errorCode,
+                        error_description: errorDesc
+                    })
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || "Pipeline invocation failed");
+
+                const steps = data.steps || [];
+
+                // Animate steps sequentially with 450ms delay
+                for (let i = 0; i < steps.length; i++) {
+                    const stepData = steps[i];
+                    const idx = stepData.step;
+                    const node = document.getElementById(`pNode${idx}`);
+                    const badge = document.getElementById(`pBadge${idx}`);
+                    const desc = document.getElementById(`pDesc${idx}`);
+                    const meta = document.getElementById(`pMeta${idx}`);
+
+                    // Mark active
+                    node.className = "pipeline-node active";
+                    badge.textContent = "Processing...";
+                    badge.className = "badge badge-purple";
+                    await new Promise(r => setTimeout(r, 450));
+
+                    // Mark completed or stopped
+                    if (stepData.status === "completed" || stepData.status === "executed") {
+                        node.className = "pipeline-node completed";
+                        badge.textContent = "Done";
+                        badge.className = "badge badge-success";
+                    } else if (stepData.status === "stopped") {
+                        node.className = "pipeline-node stopped";
+                        badge.textContent = "Safeguard Fired";
+                        badge.className = "badge badge-warning";
+                    } else {
+                        node.className = "pipeline-node completed";
+                        badge.textContent = stepData.status.toUpperCase();
+                        badge.className = "badge badge-blue";
+                    }
+
+                    desc.textContent = stepData.details;
+
+                    if (idx === 1) meta.textContent = `Event ID: ${stepData.entity_id}`;
+                    if (idx === 2) meta.textContent = `Cause: ${stepData.root_cause} | LLM Conf: ${Math.round(stepData.confidence_score*100)}%`;
+                    if (idx === 3) meta.textContent = `Strategy: ${stepData.action} via ${stepData.channel.toUpperCase()}`;
+                    if (idx === 4) meta.textContent = stepData.result ? (stepData.result.reason || "Recovery link generated") : "Completed";
+
+                    lucide.createIcons();
+                }
+
+                document.getElementById('pipelineGlobalBadge').textContent = "Pipeline Execution Finished";
+                document.getElementById('pipelineGlobalBadge').className = "badge badge-success";
+                status.textContent = `Pipeline Finished for ₹${amount.toLocaleString('en-IN')}: AI agents executed all stages.`;
+
+                // Reload metrics, audit logs, and charts
+                await loadDashboardData();
+
+            } catch (err) {
+                status.textContent = `Error running pipeline: ${err.message}`;
+            }
+        }
+
         async function startPayment() {
             const amount = Number(document.getElementById('paymentAmount').value);
             const email = document.getElementById('customerEmail').value.trim();
@@ -790,11 +1106,27 @@
                     order_id: order.order_id,
                     prefill: { email: order.customer.email },
                     handler: verifyPayment,
-                    modal: { ondismiss: () => { status.textContent = 'Transaction modal closed.'; } }
+                    modal: {
+                        ondismiss: () => {
+                            status.textContent = 'Transaction modal closed by user.';
+                            triggerSimulatedFailure({
+                                amount,
+                                email,
+                                error_code: "USER_ABANDONED",
+                                error_description: "Customer closed payment modal without attempting authorization"
+                            });
+                        }
+                    }
                 });
 
                 checkout.on('payment.failed', (evt) => {
                     status.textContent = evt.error.description || 'Payment execution failed.';
+                    triggerSimulatedFailure({
+                        amount,
+                        email,
+                        error_code: evt.error.code || "BAD_REQUEST_PAYMENT_FAILED",
+                        error_description: evt.error.description || "Razorpay checkout authorization failed"
+                    });
                 });
 
                 checkout.open();

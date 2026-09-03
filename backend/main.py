@@ -55,6 +55,13 @@ class PaymentVerificationRequest(BaseModel):
     razorpay_payment_id: str
     razorpay_signature: str
 
+
+class SimulateFailureRequest(BaseModel):
+    amount: float = Field(gt=0, default=1499.0)
+    customer_email: str = Field(default="alex.merchant@example.com")
+    error_code: str = Field(default="BAD_REQUEST_PAYMENT_FAILED")
+    error_description: str = Field(default="Payment failed due to insufficient funds in customer account")
+
 @app.on_event("startup")
 def startup_event():
     """Initializes SQLite database schema on server startup."""
@@ -282,6 +289,131 @@ def verify_payment(payment: PaymentVerificationRequest):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Razorpay payment verification failed"
         )
+
+@app.post("/api/simulate-payment-failure")
+def simulate_payment_failure(req: SimulateFailureRequest):
+    """
+    Simulates a payment failure event and runs the live autonomous 4-step AI agent pipeline.
+    Returns step-by-step pipeline execution telemetry.
+    """
+    from intelligence.diagnosis.llmClassifier import classify_error
+    from intelligence.decisionEngine.decisionRules import decide_action_for_cause
+    from backend.executor.runIntervention import execute_intervention
+
+    rar_id = f"pay_fail_{uuid.uuid4().hex[:8]}"
+    customer_id = f"cust_{uuid.uuid4().hex[:6]}"
+    razorpay_entity_id = f"pay_{uuid.uuid4().hex[:10]}"
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Step 1: Webhook Ingestion Agent
+    cursor.execute("""
+        INSERT INTO revenue_at_risk 
+        (id, customer_id, event_type, amount, currency, razorpay_entity_id, error_code, error_description, status) 
+        VALUES (?, ?, 'payment_failed', ?, 'INR', ?, ?, ?, 'open')
+    """, (rar_id, customer_id, req.amount, razorpay_entity_id, req.error_code, req.error_description))
+
+    cursor.execute("""
+        INSERT INTO audit_logs (id, entity_type, entity_id, action, details)
+        VALUES (?, 'revenue_at_risk', ?, 'WEBHOOK_INGESTED', ?)
+    """, (f"aud_{uuid.uuid4().hex[:8]}", rar_id, f"Captured payment.failed event for ₹{req.amount:,.2f} ({req.error_code})"))
+
+    step1 = {
+        "step": 1,
+        "name": "Ingestion Agent",
+        "status": "completed",
+        "title": "Webhook Event Ingested",
+        "details": f"Registered payment.failed event #{rar_id} for ₹{req.amount:,.2f}",
+        "entity_id": rar_id
+    }
+
+    # Step 2: AI Diagnosis Agent
+    diag = classify_error(req.error_code, req.error_description)
+    diag_id = f"diag_{uuid.uuid4().hex[:8]}"
+    cursor.execute("""
+        INSERT INTO diagnoses (id, revenue_at_risk_id, root_cause, classifier_type, confidence_score, reasoning)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (diag_id, rar_id, diag["root_cause"], diag["classifier_type"], diag["confidence_score"], diag["reasoning"]))
+
+    cursor.execute("""
+        INSERT INTO audit_logs (id, entity_type, entity_id, action, details)
+        VALUES (?, 'diagnosis', ?, 'AI_DIAGNOSED', ?)
+    """, (f"aud_{uuid.uuid4().hex[:8]}", diag_id, f"Root cause: {diag['root_cause']} (Confidence: {int(diag['confidence_score']*100)}%)"))
+
+    step2 = {
+        "step": 2,
+        "name": "AI Diagnosis Agent",
+        "status": "completed",
+        "root_cause": diag["root_cause"],
+        "confidence_score": diag["confidence_score"],
+        "classifier_type": diag["classifier_type"],
+        "reasoning": diag["reasoning"],
+        "title": "Root Cause Diagnosed",
+        "details": f"Identified '{diag['root_cause']}' with {int(diag['confidence_score']*100)}% confidence"
+    }
+
+    # Step 3: Decision Engine Agent
+    decision = decide_action_for_cause(diag["root_cause"])
+    interv_id = f"int_{uuid.uuid4().hex[:8]}"
+    cursor.execute("""
+        INSERT INTO interventions (id, revenue_at_risk_id, diagnosis_id, action_type, channel, status)
+        VALUES (?, ?, ?, ?, ?, 'pending')
+    """, (interv_id, rar_id, diag_id, decision["action"], decision["channel"]))
+
+    cursor.execute("""
+        INSERT INTO audit_logs (id, entity_type, entity_id, action, details)
+        VALUES (?, 'decision', ?, 'ACTION_DECIDED', ?)
+    """, (f"aud_{uuid.uuid4().hex[:8]}", interv_id, f"Policy selected action '{decision['action']}' via {decision['channel']} channel"))
+
+    step3 = {
+        "step": 3,
+        "name": "Decision Engine Agent",
+        "status": "completed",
+        "action": decision["action"],
+        "channel": decision["channel"],
+        "delay_minutes": decision.get("delay_minutes", 0),
+        "title": "Strategy & Policy Selected",
+        "details": f"Decided '{decision['action']}' dispatched via {decision['channel'].upper()}"
+    }
+
+    # Step 4: Autonomous Execution Agent
+    interv_dict = {
+        "id": interv_id,
+        "action_type": decision["action"],
+        "channel": decision["channel"],
+        "attempt_number": 1,
+        "amount": req.amount,
+        "razorpay_entity_id": razorpay_entity_id,
+        "rar_id": rar_id
+    }
+    exec_res = execute_intervention(interv_dict)
+    exec_status = exec_res.get("status", "executed")
+
+    cursor.execute("UPDATE interventions SET status = ?, executed_at = CURRENT_TIMESTAMP WHERE id = ?", (exec_status, interv_id))
+
+    cursor.execute("""
+        INSERT INTO audit_logs (id, entity_type, entity_id, action, details)
+        VALUES (?, 'intervention', ?, ?, ?)
+    """, (f"aud_{uuid.uuid4().hex[:8]}", interv_id, f"ACTION_{exec_status.upper()}", exec_res.get("reason") or exec_res.get("error") or "Executed Razorpay payment link recovery"))
+
+    conn.commit()
+    conn.close()
+
+    step4 = {
+        "step": 4,
+        "name": "Autonomous Execution Agent",
+        "status": exec_status,
+        "title": "Intervention Executed" if exec_status == "executed" else ("Stopping Rule Triggered" if exec_status == "stopped" else "Execution Result"),
+        "details": exec_res.get("reason") or exec_res.get("error") or f"Dispatched recovery action successfully via {decision['channel'].upper()}",
+        "result": exec_res
+    }
+
+    return {
+        "status": "success",
+        "pipeline_id": rar_id,
+        "steps": [step1, step2, step3, step4]
+    }
 
 # Serve static frontend web application
 if FRONTEND_DIR.exists():
