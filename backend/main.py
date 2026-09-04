@@ -300,18 +300,50 @@ def create_payment_order(payment: PaymentOrderRequest):
 
 @app.post("/api/payments/verify")
 def verify_payment(payment: PaymentVerificationRequest):
-    """Verifies the Checkout signature using Razorpay's server-side SDK."""
+    """Verifies the Checkout signature using Razorpay's server-side SDK and records the successful payment."""
     try:
-        get_razorpay_client().utility.verify_payment_signature({
+        client = get_razorpay_client()
+        client.utility.verify_payment_signature({
             "razorpay_order_id": payment.razorpay_order_id,
             "razorpay_payment_id": payment.razorpay_payment_id,
             "razorpay_signature": payment.razorpay_signature,
         })
+        
+        # Fetch dynamic amount from Razorpay API
+        try:
+            rzp_payment = client.payment.fetch(payment.razorpay_payment_id)
+            actual_amount = float(rzp_payment.get("amount", 0)) / 100.0
+            actual_currency = rzp_payment.get("currency", "INR")
+            actual_method = rzp_payment.get("method", "razorpay")
+        except Exception:
+            actual_amount = 0.0
+            actual_currency = "INR"
+            actual_method = "razorpay"
+
+        # Record the successful payment in SQLite
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        now = datetime.utcnow().isoformat()
+        
+        cursor.execute("""
+            INSERT OR REPLACE INTO payments 
+            (id, external_payment_id, amount, currency, status, payment_method, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 'captured', ?, ?, ?)
+        """, (payment.razorpay_payment_id, payment.razorpay_order_id, actual_amount, actual_currency, actual_method, now, now))
+        
+        cursor.execute("""
+            INSERT INTO audit_logs (id, entity_type, entity_id, action, details)
+            VALUES (?, 'payment', ?, 'PAYMENT_CAPTURED', ?)
+        """, (f"aud_{uuid.uuid4().hex[:8]}", payment.razorpay_payment_id, f"Razorpay Payment {payment.razorpay_payment_id} captured (â‚¹{actual_amount:,.2f}) for Order {payment.razorpay_order_id}"))
+        
+        conn.commit()
+        conn.close()
+        
         return {"status": "verified", "payment_id": payment.razorpay_payment_id}
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Razorpay payment verification failed"
+            detail=f"Razorpay payment verification failed: {str(e)}"
         )
 
 @app.post("/api/simulate-payment-failure")

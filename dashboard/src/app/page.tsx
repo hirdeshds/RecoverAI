@@ -79,7 +79,7 @@ export default function DashboardPage() {
         <div className="flex gap-3">
           <Link href="/simulator"
             className="flex items-center gap-2 bg-primary text-primary-foreground rounded-lg px-4 py-2.5 text-sm font-medium hover:opacity-90 transition-opacity">
-            <Zap className="h-4 w-4" /> Run AI Pipeline
+            <Zap className="h-4 w-4" /> Recovery Simulator
           </Link>
           <Link href="/cases"
             className="flex items-center gap-2 border rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-muted transition-colors">

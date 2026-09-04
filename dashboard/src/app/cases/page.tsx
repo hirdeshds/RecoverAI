@@ -30,13 +30,13 @@ export default function RecoveryCasesPage() {
         <select
           value={status}
           onChange={e => setStatus(e.target.value)}
-          className="rounded-lg border bg-card text-sm px-3 py-2 focus:outline-none"
+          className="rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 text-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
         >
-          <option value="">All statuses</option>
-          <option value="open">Open</option>
-          <option value="recovered">Recovered</option>
-          <option value="stopped">Stopped</option>
-          <option value="failed">Failed</option>
+          <option value="" className="bg-zinc-900 text-zinc-100">All statuses</option>
+          <option value="open" className="bg-zinc-900 text-zinc-100">Open</option>
+          <option value="recovered" className="bg-zinc-900 text-zinc-100">Recovered</option>
+          <option value="stopped" className="bg-zinc-900 text-zinc-100">Stopped</option>
+          <option value="failed" className="bg-zinc-900 text-zinc-100">Failed</option>
         </select>
       </div>
 
