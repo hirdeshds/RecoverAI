@@ -83,6 +83,19 @@ export default function App() {
         }
     };
 
+    const simulateCustomerPayment = async (rar_id) => {
+        try {
+            const res = await fetch(`/api/simulate-recovery/${rar_id}`, { method: 'POST' });
+            if (res.ok) {
+                await loadDashboardData();
+            } else {
+                console.error("Failed to simulate recovery");
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     const updatePipelineNode = (idx, updates) => {
         setPipelineNodes(prev => prev.map(n => n.id === idx ? { ...n, ...updates } : n));
     };
@@ -491,7 +504,20 @@ export default function App() {
                                                 </td>
                                                 <td><strong>{log.action_type || 'Pending'}</strong></td>
                                                 <td><span className="badge badge-purple">{log.channel || 'System'}</span></td>
-                                                <td>{statusBadge}</td>
+                                                <td>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        {statusBadge}
+                                                        {log.status === 'open' && (
+                                                            <button 
+                                                                className="btn btn-primary" 
+                                                                style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }}
+                                                                onClick={() => simulateCustomerPayment(log.id)}
+                                                            >
+                                                                Simulate Pay
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
                                             </tr>
                                         )
                                     })

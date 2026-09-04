@@ -416,6 +416,36 @@ def simulate_payment_failure(req: SimulateFailureRequest):
         "steps": [step1, step2, step3, step4]
     }
 
+@app.post("/api/simulate-recovery/{rar_id}")
+def simulate_customer_recovery(rar_id: str):
+    """
+    Demo endpoint: Simulates a customer clicking and successfully paying a recovery link.
+    Updates the database to mark the revenue_at_risk status as 'recovered'.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Verify rar exists
+    cursor.execute("SELECT id FROM revenue_at_risk WHERE id = ?", (rar_id,))
+    if not cursor.fetchone():
+        conn.close()
+        raise HTTPException(status_code=404, detail="Revenue at risk record not found")
+
+    # Update status to recovered
+    cursor.execute("UPDATE revenue_at_risk SET status = 'recovered' WHERE id = ?", (rar_id,))
+    
+    # Add audit log
+    cursor.execute("""
+        INSERT INTO audit_logs (id, entity_type, entity_id, action, details)
+        VALUES (?, 'revenue_at_risk', ?, 'STATUS_RECOVERED', ?)
+    """, (f"aud_{uuid.uuid4().hex[:8]}", rar_id, "Customer successfully completed payment via recovery link!"))
+
+    conn.commit()
+    conn.close()
+
+    return {"status": "success", "message": f"Successfully simulated customer recovery for {rar_id}"}
+
+
 # Serve static frontend web application
 if FRONTEND_DIR.exists():
     app.mount("/frontend", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
